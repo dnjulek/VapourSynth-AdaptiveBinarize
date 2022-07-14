@@ -1,4 +1,3 @@
-#include <memory>
 #include "VapourSynth4.h"
 #include "VSHelper4.h"
 
@@ -7,6 +6,7 @@ typedef struct AdaptiveBinarizeData {
 	VSNode* node2;
 	const VSVideoInfo* vi;
 	int c_param;
+	int tab[768]{};
 } AdaptiveBinarizeData;
 
 static const VSFrame* VS_CC adaptiveBinarizeGetFrame(int n, int activationReason, void* instanceData, void** frameData, VSFrameContext* frameCtx, VSCore* core, const VSAPI* vsapi) {
@@ -28,63 +28,24 @@ static const VSFrame* VS_CC adaptiveBinarizeGetFrame(int n, int activationReason
 
 		for (int plane = 0; plane < fi->numPlanes; plane++) {
 
-			if (d->vi->format.bytesPerSample == 1) {
-				const uint8_t* srcp = vsapi->getReadPtr(src, plane);
-				const uint8_t* src2p = vsapi->getReadPtr(src2, plane);
-				uint8_t* dstp = vsapi->getWritePtr(dst, plane);
+			const uint8_t* srcp = vsapi->getReadPtr(src, plane);
+			const uint8_t* src2p = vsapi->getReadPtr(src2, plane);
+			uint8_t* dstp = vsapi->getWritePtr(dst, plane);
 
-				ptrdiff_t src_stride = vsapi->getStride(src, plane);
-				ptrdiff_t src2_stride = vsapi->getStride(src2, plane);
-				ptrdiff_t dst_stride = vsapi->getStride(dst, plane);
+			ptrdiff_t stride = vsapi->getStride(src, plane);
 
-				int h = vsapi->getFrameHeight(src, plane);
-				int w = vsapi->getFrameWidth(src, plane);
-				int cp = d->c_param;
-				int tab[768]{};
+			int h = vsapi->getFrameHeight(src, plane);
+			int w = vsapi->getFrameWidth(src, plane);
 
-				for (int i = 0; i < 768; i++) {
-					tab[i] = i - 255 <= -cp ? 255 : 0;
+			for (int y = 0; y < h; y++) {
+				for (int x = 0; x < w; x++) {
+					int z = (srcp[x] - src2p[x] + 255);
+					dstp[x] = d->tab[z];
 				}
 
-				for (int y = 0; y < h; y++) {
-					for (int x = 0; x < w; x++) {
-						int z = (srcp[x] - src2p[x] + 255);
-						dstp[x] = tab[z];
-					}
-
-					dstp += dst_stride;
-					srcp += src_stride;
-					src2p += src2_stride;
-				}
-			}
-			else {
-				const uint16_t* srcp = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src, plane));
-				const uint16_t* src2p = reinterpret_cast<const uint16_t*>(vsapi->getReadPtr(src2, plane));
-				uint16_t* dstp = reinterpret_cast<uint16_t*>(vsapi->getWritePtr(dst, plane));
-
-				ptrdiff_t src_stride = vsapi->getStride(src, plane);
-				ptrdiff_t src2_stride = vsapi->getStride(src2, plane);
-				ptrdiff_t dst_stride = vsapi->getStride(dst, plane);
-
-				int h = vsapi->getFrameHeight(src, plane);
-				int w = vsapi->getFrameWidth(src, plane);
-				int cp = d->c_param;
-				int tab[768]{};
-
-				for (int i = 0; i < 768; i++) {
-					tab[i] = i - 255 <= -cp ? 65535 : 0;
-				}
-
-				for (int y = 0; y < h; y++) {
-					for (int x = 0; x < w; x++) {
-						int z = (srcp[x] - src2p[x] + 65535) / 256;
-						dstp[x] = tab[z];
-					}
-
-					dstp += (dst_stride / sizeof(uint16_t));
-					srcp += (src_stride / sizeof(uint16_t));
-					src2p += (src2_stride / sizeof(uint16_t));
-				}
+				dstp += stride;
+				srcp += stride;
+				src2p += stride;
 			}
 		}
 
@@ -113,11 +74,11 @@ static void VS_CC adaptiveBinarizeCreate(const VSMap* in, VSMap* out, void* user
 	d.node2 = vsapi->mapGetNode(in, "clip2", 0, 0);
 	d.vi = vsapi->getVideoInfo(d.node);
 
-	//if (!vsh::isConstantVideoFormat(d.vi) || d.vi->format.sampleType != stInteger) {
-	//	vsapi->mapSetError(out, "AdaptiveBinarize: only constant format 8bit integer input supported");
-	//	vsapi->freeNode(d.node);
-	//	return;
-	//}
+	if (!vsh::isConstantVideoFormat(d.vi) || d.vi->format.sampleType != stInteger || d.vi->format.bitsPerSample != 8) {
+		vsapi->mapSetError(out, "AdaptiveBinarize: only constant format 8bit integer input supported");
+		vsapi->freeNode(d.node);
+		return;
+	}
 
 	if (!vsh::isSameVideoInfo(vsapi->getVideoInfo(d.node2), d.vi)) {
 		vsapi->mapSetError(out, "AdaptiveBinarize: both clips must have the same format and dimensions");
@@ -136,6 +97,10 @@ static void VS_CC adaptiveBinarizeCreate(const VSMap* in, VSMap* out, void* user
 	d.c_param = vsapi->mapGetIntSaturated(in, "c", 0, &err);
 	if (err)
 		d.c_param = 3;
+
+	for (int i = 0; i < 768; i++) {
+		d.tab[i] = i - 255 <= -d.c_param ? 255 : 0;
+	}
 
 	data = (AdaptiveBinarizeData*)malloc(sizeof(d));
 	*data = d;
