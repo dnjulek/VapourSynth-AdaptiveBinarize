@@ -31,7 +31,7 @@ luma = vsutil.get_y(src8)
 luma16 = vsutil.depth(luma, 16)
 blur16 = luma16.std.Convolution([1]*11, mode='hv')
 blur8 = depth(blur16, 8)
-binarize = core.abrz.AdaptiveBinarize(src8, blur8, c=3)
+binarize = core.abrz.AdaptiveBinarize(luma, blur8, c=3)
 ```
 
 Has the same result as this in OpenCV:
