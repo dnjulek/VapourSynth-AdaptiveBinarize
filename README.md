@@ -39,4 +39,4 @@ Has the same result as this in OpenCV:
 binarize = cv.adaptiveThreshold(img, 255, cv.ADAPTIVE_THRESH_MEAN_C, cv.THRESH_BINARY_INV, 11, 3)
 ```
 
-More example: [flat_mask form jvsfunc](https://github.com/dnjulek/jvsfunc/blob/ee14f8e908781ff19c891a0fc2bd4b43ba94852a/jvsfunc/mask.py#L15-L41)
+More example: [flat_mask from jvsfunc](https://github.com/dnjulek/jvsfunc/blob/ee14f8e908781ff19c891a0fc2bd4b43ba94852a/jvsfunc/mask.py#L15-L41)
