@@ -1,3 +1,5 @@
+> [!CAUTION] 
+> DEPRECATED! Use https://github.com/dnjulek/vapoursynth-zip
 ## AdaptiveBinarize
 
 Adaptive Binarize for Vapoursynth, based on [OpenCV's Adaptive Thresholding](https://docs.opencv.org/5.x/d7/d4d/tutorial_py_thresholding.html).
